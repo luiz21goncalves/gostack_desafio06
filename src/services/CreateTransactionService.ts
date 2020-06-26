@@ -14,8 +14,22 @@ interface Request {
 }
 
 class CreateTransactionService {
-  private findOrCreateCategory(title: string): Category {
+  private async findOrCreateCategory(title: string): Promise<Category> {
     const categoriesRepository = getRepository(Category);
+
+    const findCategory = await categoriesRepository.findOne({
+      where: { title },
+    });
+
+    if (findCategory) {
+      return findCategory;
+    }
+
+    const category = categoriesRepository.create({ title });
+
+    await categoriesRepository.save(category);
+
+    return category;
   }
 
   public async execute({
@@ -32,11 +46,11 @@ class CreateTransactionService {
 
     const balance = await transactionsRepository.getBalance();
 
-    if (balance.total - value < 0) {
+    if (type === 'outcome' && balance.total - value < 0) {
       throw new AppError('There is no balance for transaction');
     }
 
-    const usedCategory = this.findOrCreateCategory(category);
+    const usedCategory = await this.findOrCreateCategory(category);
 
     const transaction = transactionsRepository.create({
       title,
