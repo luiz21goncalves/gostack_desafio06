@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getCustomRepository } from 'typeorm';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import uploadConfig from '../config/import';
 
 import TransactionsRepository from '../repositories/TransactionsRepository';
@@ -50,9 +52,13 @@ transactionsRouter.post(
   '/import',
   upload.single('file'),
   async (request, response) => {
+    const transactionsReadStram = fs.createReadStream(
+      path.resolve(uploadConfig.directory, request.file.filename),
+    );
+
     const importTransaction = new ImportTransactionsService();
 
-    const transaction = importTransaction.execute();
+    const transaction = await importTransaction.execute(transactionsReadStram);
 
     return response.json(transaction);
   },
