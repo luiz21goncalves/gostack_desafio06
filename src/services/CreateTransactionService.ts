@@ -14,24 +14,6 @@ interface Request {
 }
 
 class CreateTransactionService {
-  private async findOrCreateCategory(title: string): Promise<Category> {
-    const categoriesRepository = getRepository(Category);
-
-    const findCategory = await categoriesRepository.findOne({
-      where: { title },
-    });
-
-    if (findCategory) {
-      return findCategory;
-    }
-
-    const category = categoriesRepository.create({ title });
-
-    await categoriesRepository.save(category);
-
-    return category;
-  }
-
   public async execute({
     title,
     type,
@@ -44,19 +26,29 @@ class CreateTransactionService {
 
     const transactionsRepository = getCustomRepository(TransactionsRepository);
 
-    const balance = await transactionsRepository.getBalance();
+    const categoriesRepository = getRepository(Category);
 
-    if (type === 'outcome' && balance.total - value < 0) {
-      throw new AppError('There is no balance for transaction');
+    const { total } = await transactionsRepository.getBalance();
+
+    if (type === 'outcome' && total < value) {
+      throw new AppError('You do not have enough balance');
     }
 
-    const usedCategory = await this.findOrCreateCategory(category);
+    let usedCategory = await categoriesRepository.findOne({
+      where: { title: category },
+    });
+
+    if (!usedCategory) {
+      usedCategory = categoriesRepository.create({ title: category });
+
+      await categoriesRepository.save(usedCategory);
+    }
 
     const transaction = transactionsRepository.create({
       title,
       value,
       type,
-      category_id: usedCategory.id,
+      category: usedCategory,
     });
 
     await transactionsRepository.save(transaction);
